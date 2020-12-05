@@ -40,6 +40,15 @@ class Packet:
         '''|-----------------------------------------|'''
         '''| Decode a byte stream to a Packet object |'''
         '''|                                         |'''
+        # packets in int
+        self.seq_num = int.from_bytes(packet[0:4], byteorder='big', signed=True)
+        self.ack_num = int.from_bytes(packet[4:8], byteorder='big', signed=True) 
+        self.chk_sum = int.from_bytes(packet[8:12], byteorder='big', signed=True)
+
+        # length = int.from_bytes(packet[12:16], byteorder='big', signed=True)
+        # l = 16+length
+        self.payload = packet[12:]
+        # self.payload = bytes(packet[16:l])
         '''|              Fill in here               |'''
         '''|                                         |'''
         '''|------------------ End ------------------|'''

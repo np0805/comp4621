@@ -10,8 +10,6 @@ import threading
 
 import udt
 
-# implement rdt protocol in send(), right now it just use udt.send --> not reliable
-
 seq_num = 0  # Current sequence number
 total_num = 0  # Total # of packets
 base = 0  # Base of the sending window
@@ -23,6 +21,7 @@ pkt_buffer = []  # Packets-to-send
 '''| Initialize some mutex locks |'''
 '''|                             |'''
 '''|         Fill in here        |'''
+lock = threading.Lock()
 '''|                             |'''
 '''|------------ End ------------|'''
 
@@ -65,11 +64,18 @@ class SndThread(threading.Thread):
                 '''| When base equals to seq_num, start the timer |'''
                 '''|                                              |'''
                 '''|                 Fill in here                 |'''
+                lock.acquire()
+                print('---------------sndthread start------- ', base, '---------', seq_num, '\n')
+                if base == seq_num:
+                    timer = threading.Timer(timeout, udt.send, (self.sock, self.rcv_addr, pkt_buffer[seq_num]))
+                    timer.start()
                 '''|                                              |'''
                 '''|-------------------- End ---------------------|'''
 
                 '''Increment the sequence number by one'''
                 seq_num += 1
+
+                lock.release()
 
                 '''Check whether all packets are ACKed'''
             elif end_condition():
@@ -105,10 +111,13 @@ class RcvThread(threading.Thread):
             '''Check whether the ACK is corrupted'''
             if pkt.chk_sum == pkt.compute_checksum():
 
+                lock.acquire()
                 '''|--------------------------------------------------------------------|'''
                 '''| Update the base of the sender window according to received seq_num |'''
                 '''|                                                                    |'''
                 '''|                             Fill in here                           |'''
+                base = pkt.seq_num
+                print('---------------rcvthread start--------------', pkt.seq_num, '----------', pkt.ack_num, '---------------', pkt.chk_sum, '\n')
                 '''|                                                                    |'''
                 '''|--------------------------------- End ------------------------------|'''
 
@@ -116,6 +125,7 @@ class RcvThread(threading.Thread):
                 '''|                       Stop the timer                      |'''
                 '''|                                                           |'''
                 '''|                        Fill in here                       |'''
+                timer.cancel()
                 '''|                                                           |'''
                 '''|---------------------------- End --------------------------|'''
 
@@ -123,8 +133,13 @@ class RcvThread(threading.Thread):
                 '''|    Start the timer if base doesn't equal to seq_number    |'''
                 '''|                                                           |'''
                 '''|                        Fill in here                       |'''
+                if base != seq_num:
+                    ''' ini gw yakin perlu nulis timer = threading.timer bla bla cuman gw gatau pake funciton apa '''
+                    # timer = threading.Timer(timeout, udt.recv, self.sock)
+                    # timer.start()
                 '''|                                                           |'''
                 '''|---------------------------- End --------------------------|'''
+                lock.release()
 
             else:
                 print('Corrupted ACK detected! ACK #', pkt.ack_num)
@@ -151,6 +166,13 @@ def resend(sock, rcv_addr):
     '''| Restart the timer |'''
     '''|                   |'''
     '''|   Fill in here    |'''
+    lock.acquire()
+    timer.cancel()
+    timer = threading.Timer(timeout, resend, (sock, rcv_addr))
+    timer.start()
+    print('<--- Prepare to resend pkt', seq_num, '\n')
+
+    lock.release()
     '''|                   |'''
     '''|------- End -------|'''
 
@@ -166,11 +188,15 @@ def end_condition():
     """
 
     flag = False
-
     '''|-------------------------------------------------------|'''
     '''| Check whether all the packets in the buffer are ACKed |'''
     '''|                                                       |'''
     '''|                     Fill in here                      |'''
+    lock.acquire()
+    if seq_num == total_num:
+        print('---------------end condition start \n')
+        flag = True
+    lock.release()
     '''|                                                       |'''
     '''|----------------------- End ---------------------------|'''
 
@@ -189,6 +215,12 @@ def send_condition():
     '''| Check whether the sender can send the next packet in the buffer |'''
     '''|                                                                 |'''
     '''|                         Fill in here                            |'''
+    lock.acquire()
+    if (base<total_num) and (seq_num<total_num):
+        # print('---------------send condition start \n')
+        flag = True
+
+    lock.release()
     '''|                                                                 |'''
     '''|----------------------------- End -------------------------------|'''
 
@@ -216,6 +248,8 @@ def send(sock, rcv_addr):
     :param sock: Sending packet to the socket
     :param rcv_addr: The receiver's address
     """
+    # implement rdt protocol in send(), right now it just use udt.send --> not reliable
+
     global total_num
     total_num = len(pkt_buffer)
     print('Total # packet: ', total_num)
@@ -230,6 +264,10 @@ def send(sock, rcv_addr):
     '''| Wait for the termination of snd_thread and rcv_thread |'''
     '''|                                                       |'''
     '''|                    Fill in here                       |'''
+    print('-----------------send\n')
+    snd_thread.join()
+    rcv_thread.join()
+    print('-------------------------send end')
     '''|                                                       |'''
     '''|----------------------- End ---------------------------|'''
 
