@@ -55,6 +55,7 @@ class SndThread(threading.Thread):
         while True:
 
             '''Before sending, check whether there is unsent packet in the buffer'''
+            print('ini snd\n')
             if send_condition():
 
                 '''Send the next packet'''
@@ -65,8 +66,9 @@ class SndThread(threading.Thread):
                 '''|                                              |'''
                 '''|                 Fill in here                 |'''
                 lock.acquire()
-                print('---------------sndthread start------- ', base, '---------', seq_num, '\n')
+                print('---------------sndthread start-------base ', base, '---------seqnum ', seq_num, '\n')
                 if base == seq_num:
+                    print('HACIYATTTTTT------------')
                     timer = threading.Timer(timeout, udt.send, (self.sock, self.rcv_addr, pkt_buffer[seq_num]))
                     timer.start()
                 '''|                                              |'''
@@ -109,6 +111,7 @@ class RcvThread(threading.Thread):
             pkt, _ = udt.recv(self.sock)
 
             '''Check whether the ACK is corrupted'''
+            print('ini rcv\n')
             if pkt.chk_sum == pkt.compute_checksum():
 
                 lock.acquire()
@@ -116,8 +119,8 @@ class RcvThread(threading.Thread):
                 '''| Update the base of the sender window according to received seq_num |'''
                 '''|                                                                    |'''
                 '''|                             Fill in here                           |'''
-                base = pkt.seq_num
-                print('---------------rcvthread start--------------', pkt.seq_num, '----------', pkt.ack_num, '---------------', pkt.chk_sum, '\n')
+                base = pkt.ack_num
+                print('---------------rcvthread start--------------base ', base, '----------seqnum ', seq_num, '---------------chksum ', pkt.chk_sum, '\n')
                 '''|                                                                    |'''
                 '''|--------------------------------- End ------------------------------|'''
 
@@ -136,6 +139,7 @@ class RcvThread(threading.Thread):
                 if base != seq_num:
                     ''' ini gw yakin perlu nulis timer = threading.timer bla bla cuman gw gatau pake funciton apa '''
                     # timer = threading.Timer(timeout, udt.recv, self.sock)
+                    # timer = threading.Timer(timeout, udt.recv, (self.sock,))
                     # timer.start()
                 '''|                                                           |'''
                 '''|---------------------------- End --------------------------|'''
@@ -145,6 +149,7 @@ class RcvThread(threading.Thread):
                 print('Corrupted ACK detected! ACK #', pkt.ack_num)
 
             '''If all the packets are ACKed, return'''
+            
             if end_condition():
                 break
 
@@ -192,8 +197,9 @@ def end_condition():
     '''| Check whether all the packets in the buffer are ACKed |'''
     '''|                                                       |'''
     '''|                     Fill in here                      |'''
+    print('end\n')
     lock.acquire()
-    if seq_num == total_num:
+    if base >= (total_num) or seq_num >= total_num:
         print('---------------end condition start \n')
         flag = True
     lock.release()
@@ -215,9 +221,10 @@ def send_condition():
     '''| Check whether the sender can send the next packet in the buffer |'''
     '''|                                                                 |'''
     '''|                         Fill in here                            |'''
+    print('satrt\n')
     lock.acquire()
-    if (base<total_num) and (seq_num<total_num):
-        # print('---------------send condition start \n')
+    if (seq_num<total_num):
+        print('---------------send condition start \n')
         flag = True
 
     lock.release()
@@ -267,6 +274,9 @@ def send(sock, rcv_addr):
     print('-----------------send\n')
     snd_thread.join()
     rcv_thread.join()
+    print('-----------------------------------------base: ', base, '\n')
+    print('-----------------------------------------seq_num: ', seq_num, '\n')
+    print('-----------------------------------------len pkt, ', len(pkt_buffer), '\n')
     print('-------------------------send end')
     '''|                                                       |'''
     '''|----------------------- End ---------------------------|'''
